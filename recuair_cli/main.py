@@ -5,9 +5,11 @@ Usage: recuair-cli [options] <device>...
        recuair-cli --version
 
 Options:
-  -h, --help           show this help message and exit
-  --version            show program's version number and exit
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+  --debug               print debug logs
 """
+import logging
 import sys
 from typing import List, NamedTuple, Optional
 
@@ -16,6 +18,8 @@ from bs4 import BeautifulSoup
 from docopt import docopt
 
 from recuair_cli import __version__
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class StatusError(Exception):
@@ -43,9 +47,13 @@ def get_status(device: str) -> Status:
     """Return device status."""
     try:
         response = requests.get(f'http://{device}/', timeout=2)
+        # XXX: Recuair doesn't return encoding properly.
+        response.encoding = 'utf-8'
         response.raise_for_status()
     except requests.RequestException as error:
+        _LOGGER.debug("Error encountered: %s", error)
         raise StatusError(f"Error fetching status of device {device}: {error}") from error
+    _LOGGER.debug("Response: %s", response.text)
 
     try:
         content = BeautifulSoup(response.text, features="html.parser")
@@ -66,12 +74,17 @@ def get_status(device: str) -> Status:
             co2_ppm=int(_strip_unit(co2_raw)),
         )
     except Exception as error:
+        # XXX: Recuair sometimes return incorrectly formatted response.
         raise StatusError("Invalid response returned") from error
 
 
 def main(argv: Optional[List[str]] = None) -> None:
     """Run the CLI."""
     options = docopt(__doc__, version=__version__, argv=argv)
+
+    if options['--debug']:
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)-8s %(name)s:%(funcName)s: %(message)s')
 
     for device in options['<device>']:
         try:
