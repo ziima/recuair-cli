@@ -23,6 +23,15 @@ class GetStatusTest(TestCase):
                             mode='AUTO', co2_ppm=1246)
             self.assertEqual(status, result)
 
+    def test_invalid(self):
+        # Test case with '%%content%%' in the response.
+        with responses.RequestsMock() as rsps:
+            with open(_DATA / 'invalid.html', 'rb') as file:
+                rsps.add(responses.GET, 'http://example/', body=file.read(), content_type="text/html")
+
+            with self.assertRaisesRegex(StatusError, 'Invalid response returned'):
+                get_status('example')
+
     def test_error(self):
         with responses.RequestsMock() as rsps:
             rsps.add(responses.GET, 'http://example/', body=requests.RequestException('Gazpacho!'))

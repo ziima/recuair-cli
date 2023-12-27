@@ -47,23 +47,26 @@ def get_status(device: str) -> Status:
     except requests.RequestException as error:
         raise StatusError(f"Error fetching status of device {device}: {error}") from error
 
-    content = BeautifulSoup(response.text, features="html.parser")
-    container = content.find(class_='container')
-    temperature_raw = container.find_all(class_='col-12')[1].find(class_='bigText').text
-    in_data, _, temp_out = temperature_raw.strip().partition('%')
-    temp_in, _, humi_in = in_data.strip().partition('/')
-    mode_raw = container.find_all(class_='col-12')[3].find('span').text
-    co2_raw = container.find_all(class_='col-12')[4].find('b').text
+    try:
+        content = BeautifulSoup(response.text, features="html.parser")
+        container = content.find(class_='container')
+        temperature_raw = container.find_all(class_='col-12')[1].find(class_='bigText').text
+        in_data, _, temp_out = temperature_raw.strip().partition('%')
+        temp_in, _, humi_in = in_data.strip().partition('/')
+        mode_raw = container.find_all(class_='col-12')[3].find('span').text
+        co2_raw = container.find_all(class_='col-12')[4].find('b').text
 
-    return Status(
-        device=device,
-        name=content.find(class_='deviceName').text,
-        temperature_in=int(_strip_unit(temp_in)),
-        humidity_in=int(_strip_unit(humi_in)),
-        temperature_out=int(_strip_unit(temp_out)),
-        mode=mode_raw.strip(),
-        co2_ppm=int(_strip_unit(co2_raw)),
-    )
+        return Status(
+            device=device,
+            name=content.find(class_='deviceName').text,
+            temperature_in=int(_strip_unit(temp_in)),
+            humidity_in=int(_strip_unit(humi_in)),
+            temperature_out=int(_strip_unit(temp_out)),
+            mode=mode_raw.strip(),
+            co2_ppm=int(_strip_unit(co2_raw)),
+        )
+    except Exception as error:
+        raise StatusError("Invalid response returned") from error
 
 
 def main(argv: Optional[List[str]] = None) -> None:
