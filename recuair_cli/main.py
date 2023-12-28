@@ -27,7 +27,20 @@ class StatusError(Exception):
 
 
 class Status(NamedTuple):
-    """Represents device status."""
+    """Represents device status.
+
+    Attributes:
+        device: Hostname of the device.
+        name: Name of the device.
+        temperature_in: Temperature inside in ˚C.
+        humidity_in: Humidity inside in %.
+        temperature_out: Temperature outside in °C.
+        mode: Operating mode.
+        co2_ppm: CO2 levels in ppm.
+        filter: Filter used in %.
+        fan: Fan speed in %.
+        light: Light power, range 0-5.
+    """
 
     device: str
     name: str
@@ -36,6 +49,9 @@ class Status(NamedTuple):
     temperature_out: int
     mode: str
     co2_ppm: int
+    filter: int
+    fan: int
+    light: int
 
 
 def _strip_unit(value: str) -> str:
@@ -63,6 +79,9 @@ def get_status(device: str) -> Status:
         temp_in, _, humi_in = in_data.strip().partition('/')
         mode_raw = container.find_all(class_='col-12')[3].find('span').text
         co2_raw = container.find_all(class_='col-12')[4].find('b').text
+        filter_raw = container.find_all(class_='filterBox')[1].div['style'].partition(':')[2].partition('%')[0]
+        fan_raw = container.find_all(class_='filterBox')[2].div['style'].partition(':')[2].partition('%')[0]
+        light_raw = container.find(id='myRange')['value']
 
         return Status(
             device=device,
@@ -72,6 +91,9 @@ def get_status(device: str) -> Status:
             temperature_out=int(_strip_unit(temp_out)),
             mode=mode_raw.strip(),
             co2_ppm=int(_strip_unit(co2_raw)),
+            filter=100 - int(_strip_unit(filter_raw)),
+            fan=100 - int(_strip_unit(fan_raw)),
+            light=int(light_raw),
         )
     except Exception as error:
         # XXX: Recuair sometimes return incorrectly formatted response.

@@ -20,7 +20,7 @@ class GetStatusTest(TestCase):
             status = get_status('example')
 
             result = Status(device='example', name='Holly', temperature_in=17, humidity_in=56, temperature_out=5,
-                            mode='AUTO', co2_ppm=1246)
+                            mode='AUTO', co2_ppm=1246, filter=2, fan=69, light=5)
             self.assertEqual(status, result)
 
     def test_invalid(self):
@@ -43,7 +43,7 @@ class GetStatusTest(TestCase):
 class MainTest(TestCase):
     def test(self):
         status = Status(device='example', name='Holly', temperature_in=18, humidity_in=57, temperature_out=5,
-                        mode='AUTO', co2_ppm=1232)
+                        mode='AUTO', co2_ppm=1232, filter=0, fan=0, light=0)
         with patch('recuair_cli.main.get_status', return_value=status) as get_status_mock:
             with OutputCapture() as output:
                 main(['example'])
