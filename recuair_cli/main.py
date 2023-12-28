@@ -97,7 +97,7 @@ def get_status(device: str) -> Status:
         )
     except Exception as error:
         # XXX: Recuair sometimes return incorrectly formatted response.
-        raise StatusError("Invalid response returned") from error
+        raise StatusError(f"Invalid response returned from device {device}") from error
 
 
 def main(argv: Optional[List[str]] = None) -> None:
@@ -108,13 +108,17 @@ def main(argv: Optional[List[str]] = None) -> None:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)-8s %(name)s:%(funcName)s: %(message)s')
 
+    error_found = False
     for device in options['<device>']:
         try:
             status = get_status(device)
         except StatusError as error:
             print(error)
-            sys.exit(1)
-        print(status)
+            error_found = True
+        else:
+            print(status)
+    if error_found:
+        sys.exit(1)
 
 
 if __name__ == '__main__':
