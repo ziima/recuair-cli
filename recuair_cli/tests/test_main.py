@@ -46,7 +46,7 @@ class MainTest(TestCase):
                         mode='AUTO', co2_ppm=1232, filter=0, fan=0, light=0)
         with patch('recuair_cli.main.get_status', return_value=status) as get_status_mock:
             with OutputCapture() as output:
-                main(['example'])
+                main(['status', 'example'])
 
         self.assertEqual(get_status_mock.mock_calls, [call('example')])
         output.compare(f'{status}')
@@ -55,6 +55,6 @@ class MainTest(TestCase):
         with patch('recuair_cli.main.get_status', side_effect=StatusError('Gazpacho!')):
             with OutputCapture() as output:
                 with self.assertRaises(SystemExit):
-                    main(['example'])
+                    main(['status', 'example'])
 
         output.compare('Gazpacho!')

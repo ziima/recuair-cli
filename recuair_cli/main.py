@@ -1,8 +1,11 @@
 """Manage recuair devices.
 
-Usage: recuair-cli [options] <device>...
+Usage: recuair-cli [options] status <device>...
        recuair-cli -h | --help
        recuair-cli --version
+
+Subcommands:
+  status                print status of devices
 
 Options:
   -h, --help            show this help message and exit
