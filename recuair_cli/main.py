@@ -3,6 +3,8 @@
 Usage: recuair-cli [options] status <device>...
        recuair-cli [options] start <device>...
        recuair-cli [options] stop <device>...
+       recuair-cli [options] holiday <device>...
+       recuair-cli [options] bypass <device>...
        recuair-cli [options] light <intensity> <red> <green> <blue> <device>...
        recuair-cli [options] light off <device>...
        recuair-cli -h | --help
@@ -12,6 +14,8 @@ Subcommands:
   status                print status of devices
   start                 start devices
   stop                  stop devices
+  holiday               set holiday mode
+  bypass                set bypass mode
   light                 change light
 
 Options:
@@ -141,6 +145,10 @@ def main(argv: Optional[List[str]] = None) -> None:
                 post_request(device, {'mode': 'auto'})
             elif options['stop']:
                 post_request(device, {'mode': 'off'})
+            elif options['holiday']:
+                post_request(device, {'mode': 'holiday'})
+            elif options['bypass']:
+                post_request(device, {'mode': 'bypass'})
             elif options['light']:
                 # XXX: Recuair doesn't accept only change in light intensity. Whole light setting has to be provided.
                 if options['off']:

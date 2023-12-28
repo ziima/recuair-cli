@@ -79,6 +79,18 @@ class MainTest(TestCase):
 
         self.assertEqual(post_request_mock.mock_calls, [call('example', {'mode': 'off'})])
 
+    def test_holiday(self):
+        with patch('recuair_cli.main.post_request') as post_request_mock:
+            main(['holiday', 'example'])
+
+        self.assertEqual(post_request_mock.mock_calls, [call('example', {'mode': 'holiday'})])
+
+    def test_bypass(self):
+        with patch('recuair_cli.main.post_request') as post_request_mock:
+            main(['bypass', 'example'])
+
+        self.assertEqual(post_request_mock.mock_calls, [call('example', {'mode': 'bypass'})])
+
     def test_light(self):
         with patch('recuair_cli.main.post_request') as post_request_mock:
             main(['light', '5', '255', '110', '20', 'example'])
