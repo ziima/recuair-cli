@@ -55,6 +55,14 @@ class PostRequestTest(TestCase):
             with self.assertRaisesRegex(RecuairError, 'Error from device example: Gazpacho!'):
                 post_request('example', {'answer': '42'})
 
+    def test_invalid(self):
+        # Test recuair returns 200 response on invalid requests.
+        with responses.RequestsMock() as rsps:
+            rsps.add(responses.POST, 'http://example/', body='status')
+
+            with self.assertRaisesRegex(RecuairError, 'Unknown error from device example'):
+                post_request('example', {'answer': '42'})
+
 
 class MainTest(TestCase):
     def test_status(self):

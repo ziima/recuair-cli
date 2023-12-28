@@ -133,7 +133,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     """Run the CLI."""
     options = docopt(__doc__, version=__version__, argv=argv)
 
-    if options['--debug']:
+    if options['--debug']:  # pragma: no cover
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)-8s %(name)s:%(funcName)s: %(message)s')
 
@@ -167,5 +167,5 @@ def main(argv: Optional[List[str]] = None) -> None:
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     main()
