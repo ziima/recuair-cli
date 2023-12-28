@@ -1,11 +1,15 @@
 """Manage recuair devices.
 
 Usage: recuair-cli [options] status <device>...
+       recuair-cli [options] start <device>...
+       recuair-cli [options] stop <device>...
        recuair-cli -h | --help
        recuair-cli --version
 
 Subcommands:
   status                print status of devices
+  start                 start devices
+  stop                  stop devices
 
 Options:
   -h, --help            show this help message and exit
@@ -14,7 +18,7 @@ Options:
 """
 import logging
 import sys
-from typing import List, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 import requests
 from bs4 import BeautifulSoup
@@ -25,8 +29,8 @@ from recuair_cli import __version__
 _LOGGER = logging.getLogger(__name__)
 
 
-class StatusError(Exception):
-    """Status of device can't be fetched."""
+class RecuairError(Exception):
+    """An error occured when managing the device."""
 
 
 class Status(NamedTuple):
@@ -71,8 +75,8 @@ def get_status(device: str) -> Status:
         response.raise_for_status()
     except requests.RequestException as error:
         _LOGGER.debug("Error encountered: %s", error)
-        raise StatusError(f"Error fetching status of device {device}: {error}") from error
-    _LOGGER.debug("Response: %s", response.text)
+        raise RecuairError(f"Error fetching status of device {device}: {error}") from error
+    _LOGGER.debug("Response [%s]: %s", response, response.text)
 
     try:
         content = BeautifulSoup(response.text, features="html.parser")
@@ -100,7 +104,20 @@ def get_status(device: str) -> Status:
         )
     except Exception as error:
         # XXX: Recuair sometimes return incorrectly formatted response.
-        raise StatusError(f"Invalid response returned from device {device}") from error
+        raise RecuairError(f"Invalid response returned from device {device}") from error
+
+
+def post_request(device: str, data: Dict[str, Any]) -> None:
+    """Send a POST request to the device."""
+    try:
+        # XXX: Disable redirects. Recuair returns 301 for POST requests.
+        response = requests.post(f'http://{device}/', data=data, timeout=30, allow_redirects=False)
+        response.raise_for_status()
+    except requests.RequestException as error:
+        _LOGGER.debug("Error encountered: %s", error)
+        raise RecuairError(f"Error from device {device}: {error}") from error
+    # XXX: When invalid request is send, Recuair returns status page :-/
+    _LOGGER.debug("Response [%s]: %s", response, response.text)
 
 
 def main(argv: Optional[List[str]] = None) -> None:
@@ -114,12 +131,17 @@ def main(argv: Optional[List[str]] = None) -> None:
     error_found = False
     for device in options['<device>']:
         try:
-            status = get_status(device)
-        except StatusError as error:
+            if options['start']:
+                # XXX: Start in auto mode. Recuair GUI starts on mode 1.
+                post_request(device, {'mode': 'auto'})
+            elif options['stop']:
+                post_request(device, {'mode': 'off'})
+            else:
+                status = get_status(device)
+                print(status)
+        except RecuairError as error:
             print(error)
             error_found = True
-        else:
-            print(status)
     if error_found:
         sys.exit(1)
 
