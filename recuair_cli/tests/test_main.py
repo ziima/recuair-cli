@@ -79,6 +79,20 @@ class MainTest(TestCase):
 
         self.assertEqual(post_request_mock.mock_calls, [call('example', {'mode': 'off'})])
 
+    def test_light(self):
+        with patch('recuair_cli.main.post_request') as post_request_mock:
+            main(['light', '5', '255', '110', '20', 'example'])
+
+        self.assertEqual(post_request_mock.mock_calls,
+                         [call('example', {'r': '255', 'g': '110', 'b': '20', 'intensity': '5'})])
+
+    def test_light_off(self):
+        with patch('recuair_cli.main.post_request') as post_request_mock:
+            main(['light', 'off', 'example'])
+
+        self.assertEqual(post_request_mock.mock_calls,
+                         [call('example', {'r': '0', 'g': '0', 'b': '0', 'intensity': '0'})])
+
     def test_error(self):
         with patch('recuair_cli.main.get_status', side_effect=RecuairError('Gazpacho!')):
             with OutputCapture() as output:

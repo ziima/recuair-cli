@@ -3,6 +3,8 @@
 Usage: recuair-cli [options] status <device>...
        recuair-cli [options] start <device>...
        recuair-cli [options] stop <device>...
+       recuair-cli [options] light <intensity> <red> <green> <blue> <device>...
+       recuair-cli [options] light off <device>...
        recuair-cli -h | --help
        recuair-cli --version
 
@@ -10,6 +12,7 @@ Subcommands:
   status                print status of devices
   start                 start devices
   stop                  stop devices
+  light                 change light
 
 Options:
   -h, --help            show this help message and exit
@@ -46,7 +49,7 @@ class Status(NamedTuple):
         co2_ppm: CO2 levels in ppm.
         filter: Filter used in %.
         fan: Fan speed in %.
-        light: Light power, range 0-5.
+        light: Light intensity, range 0-5.
     """
 
     device: str
@@ -116,6 +119,8 @@ def post_request(device: str, data: Dict[str, Any]) -> None:
     except requests.RequestException as error:
         _LOGGER.debug("Error encountered: %s", error)
         raise RecuairError(f"Error from device {device}: {error}") from error
+    if response.status_code != 301:
+        raise RecuairError(f"Unknown error from device {device}")
     # XXX: When invalid request is send, Recuair returns status page :-/
     _LOGGER.debug("Response [%s]: %s", response, response.text)
 
@@ -136,6 +141,14 @@ def main(argv: Optional[List[str]] = None) -> None:
                 post_request(device, {'mode': 'auto'})
             elif options['stop']:
                 post_request(device, {'mode': 'off'})
+            elif options['light']:
+                # XXX: Recuair doesn't accept only change in light intensity. Whole light setting has to be provided.
+                if options['off']:
+                    post_request(device, {'r': '0', 'g': '0', 'b': '0', 'intensity': '0'})
+                else:
+                    data = {'r': options['<red>'], 'g': options['<green>'], 'b': options['<blue>'],
+                            'intensity': options['<intensity>']}
+                    post_request(device, data)
             else:
                 status = get_status(device)
                 print(status)
