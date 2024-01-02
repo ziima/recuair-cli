@@ -23,10 +23,11 @@ Options:
   --version             show program's version number and exit
   --debug               print debug logs
 """
+import asyncio
 import logging
 import sys
 from http import HTTPStatus
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Coroutine, Dict, List, NamedTuple, Optional
 
 import httpx
 from bs4 import BeautifulSoup
@@ -74,10 +75,10 @@ def _strip_unit(value: str) -> str:
     return value.strip().partition(' ')[0]
 
 
-def get_status(device: str) -> Status:
+async def get_status(client: httpx.AsyncClient, device: str) -> Status:
     """Return device status."""
     try:
-        response = httpx.get(f'http://{device}/', timeout=2)
+        response = await client.get(f'http://{device}/', timeout=2)
         response.raise_for_status()
     except httpx.HTTPError as error:
         _LOGGER.debug("Error encountered: %s", error)
@@ -113,11 +114,11 @@ def get_status(device: str) -> Status:
         raise RecuairError(f"Invalid response returned from device {device}") from error
 
 
-def post_request(device: str, data: Dict[str, Any]) -> None:
+async def post_request(client: httpx.AsyncClient, device: str, data: Dict[str, Any]) -> None:
     """Send a POST request to the device."""
     try:
         # XXX: Disable redirects. Recuair returns 301 for POST requests.
-        response = httpx.post(f'http://{device}/', data=data, timeout=30, follow_redirects=False)
+        response = await client.post(f'http://{device}/', data=data, timeout=30, follow_redirects=False)
     except httpx.HTTPError as error:
         _LOGGER.debug("Error encountered: %s", error)
         raise RecuairError(f"Error from device {device}: {error}") from error
@@ -127,34 +128,41 @@ def post_request(device: str, data: Dict[str, Any]) -> None:
     _LOGGER.debug("Response [%s]: %s", response, response.text)
 
 
-def _run(options: Dict[str, str]) -> None:
+async def _run(options: Dict[str, str]) -> None:
     """Actually run the command."""
     error_found = False
-    for device in options['<device>']:
-        try:
+    async with httpx.AsyncClient() as client:
+        coros: List[Coroutine] = []
+        for device in options['<device>']:
             if options['start']:
                 # XXX: Start in auto mode. Recuair GUI starts on mode 1.
-                post_request(device, {'mode': 'auto'})
+                coros.append(post_request(client, device, {'mode': 'auto'}))
             elif options['stop']:
-                post_request(device, {'mode': 'off'})
+                coros.append(post_request(client, device, {'mode': 'off'}))
             elif options['holiday']:
-                post_request(device, {'mode': 'holiday'})
+                coros.append(post_request(client, device, {'mode': 'holiday'}))
             elif options['bypass']:
-                post_request(device, {'mode': 'bypass'})
+                coros.append(post_request(client, device, {'mode': 'bypass'}))
             elif options['light']:
-                # XXX: Recuair doesn't accept only change in light intensity. Whole light setting has to be provided.
+                # XXX: Recuair doesn't accept only change in light intensity.
+                # Whole light setting has to be provided.
                 if options['off']:
-                    post_request(device, {'r': '0', 'g': '0', 'b': '0', 'intensity': '0'})
+                    coros.append(post_request(client, device, {'r': '0', 'g': '0', 'b': '0', 'intensity': '0'}))
                 else:
                     data = {'r': options['<red>'], 'g': options['<green>'], 'b': options['<blue>'],
                             'intensity': options['<intensity>']}
-                    post_request(device, data)
+                    coros.append(post_request(client, device, data))
             else:
-                status = get_status(device)
-                print(status)
-        except RecuairError as error:
-            print(error)
-            error_found = True
+                coros.append(get_status(client, device))
+
+        error_found = False
+        for result in await asyncio.gather(*coros, return_exceptions=True):
+            if isinstance(result, BaseException):
+                print(result)
+                error_found = True
+            elif result:
+                print(result)
+
     if error_found:
         sys.exit(1)
 
@@ -167,7 +175,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)-8s %(name)s:%(funcName)s: %(message)s')
 
-    _run(options)
+    asyncio.run(_run(options))
 
 
 if __name__ == '__main__':  # pragma: no cover
