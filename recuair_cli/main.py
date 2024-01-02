@@ -127,14 +127,8 @@ def post_request(device: str, data: Dict[str, Any]) -> None:
     _LOGGER.debug("Response [%s]: %s", response, response.text)
 
 
-def main(argv: Optional[List[str]] = None) -> None:
-    """Run the CLI."""
-    options = docopt(__doc__, version=__version__, argv=argv)
-
-    if options['--debug']:  # pragma: no cover
-        logging.basicConfig(level=logging.DEBUG,
-                            format='%(asctime)s %(levelname)-8s %(name)s:%(funcName)s: %(message)s')
-
+def _run(options: Dict[str, str]) -> None:
+    """Actually run the command."""
     error_found = False
     for device in options['<device>']:
         try:
@@ -163,6 +157,17 @@ def main(argv: Optional[List[str]] = None) -> None:
             error_found = True
     if error_found:
         sys.exit(1)
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    """Run the CLI."""
+    options = docopt(__doc__, version=__version__, argv=argv)
+
+    if options['--debug']:  # pragma: no cover
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)-8s %(name)s:%(funcName)s: %(message)s')
+
+    _run(options)
 
 
 if __name__ == '__main__':  # pragma: no cover
