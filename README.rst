@@ -9,11 +9,11 @@ Installation
 
 1. Clone the repository::
 
-   git clone https://github.com/ziima/recuair-cli.git
+    git clone https://github.com/ziima/recuair-cli.git
 
 2. Install using ``pipx``::
 
-   pipx install ./recuair-cli
+    pipx install ./recuair-cli
 
 Usage
 =====
