@@ -27,7 +27,7 @@ import asyncio
 import logging
 import sys
 from http import HTTPStatus
-from typing import Any, Coroutine, Dict, List, NamedTuple, Optional
+from typing import Any, Callable, Coroutine, Dict, List, NamedTuple, Optional, TypeVar
 
 import httpx
 from bs4 import BeautifulSoup
@@ -76,8 +76,6 @@ def _strip_unit(value: str) -> str:
     return value.strip().partition(' ')[0]
 
 
-# XXX: Add retry, recuair devices are often irresponsive.
-@retry(reraise=True, stop=stop_after_attempt(10), wait=wait_exponential(max=30))
 async def get_status(client: httpx.AsyncClient, device: str) -> Status:
     """Return device status."""
     try:
@@ -117,7 +115,6 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
         raise RecuairError(f"Invalid response returned from device {device}") from error
 
 
-@retry(reraise=True, stop=stop_after_attempt(10), wait=wait_exponential(max=30))
 async def post_request(client: httpx.AsyncClient, device: str, data: Dict[str, Any]) -> None:
     """Send a POST request to the device."""
     try:
@@ -132,6 +129,14 @@ async def post_request(client: httpx.AsyncClient, device: str, data: Dict[str, A
     _LOGGER.debug("Response [%s]: %s", response, response.text)
 
 
+X = TypeVar('X')
+
+
+# XXX: Add retry, recuair devices are often irresponsive.
+def _wrap_retry(func: Callable[..., X]) -> Callable[..., X]:
+    return retry(reraise=True, stop=stop_after_attempt(10), wait=wait_exponential(max=30))(func)
+
+
 async def _run(options: Dict[str, str]) -> None:
     """Actually run the command."""
     error_found = False
@@ -140,24 +145,25 @@ async def _run(options: Dict[str, str]) -> None:
         for device in options['<device>']:
             if options['start']:
                 # XXX: Start in auto mode. Recuair GUI starts on mode 1.
-                coros.append(post_request(client, device, {'mode': 'auto'}))
+                coros.append(_wrap_retry(post_request)(client, device, {'mode': 'auto'}))
             elif options['stop']:
-                coros.append(post_request(client, device, {'mode': 'off'}))
+                coros.append(_wrap_retry(post_request)(client, device, {'mode': 'off'}))
             elif options['holiday']:
-                coros.append(post_request(client, device, {'mode': 'holiday'}))
+                coros.append(_wrap_retry(post_request)(client, device, {'mode': 'holiday'}))
             elif options['bypass']:
-                coros.append(post_request(client, device, {'mode': 'bypass'}))
+                coros.append(_wrap_retry(post_request)(client, device, {'mode': 'bypass'}))
             elif options['light']:
                 # XXX: Recuair doesn't accept only change in light intensity.
                 # Whole light setting has to be provided.
                 if options['off']:
-                    coros.append(post_request(client, device, {'r': '0', 'g': '0', 'b': '0', 'intensity': '0'}))
+                    coros.append(
+                        _wrap_retry(post_request)(client, device, {'r': '0', 'g': '0', 'b': '0', 'intensity': '0'}))
                 else:
                     data = {'r': options['<red>'], 'g': options['<green>'], 'b': options['<blue>'],
                             'intensity': options['<intensity>']}
-                    coros.append(post_request(client, device, data))
+                    coros.append(_wrap_retry(post_request)(client, device, data))
             else:
-                coros.append(get_status(client, device))
+                coros.append(_wrap_retry(get_status)(client, device))
 
         error_found = False
         for result in await asyncio.gather(*coros, return_exceptions=True):

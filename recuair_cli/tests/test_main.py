@@ -39,7 +39,8 @@ class GetStatusTest(IsolatedAsyncioTestCase):
         with respx.mock() as rsps:
             rsps.get('http://example/').mock(side_effect=HTTPError('Gazpacho!'))
 
-            with self.assertRaisesRegex(RecuairError, 'Error fetching status of device example: Gazpacho!'):
+            with self.assertRaisesRegex(RecuairError,
+                                        "Error fetching status of device example: HTTPError.*Gazpacho!.*"):
                 async with httpx.AsyncClient() as client:
                     await get_status(client, 'example')
 
@@ -126,9 +127,13 @@ class MainTest(TestCase):
             [call(Comparison(httpx.AsyncClient), 'example', {'r': '0', 'g': '0', 'b': '0', 'intensity': '0'})])
 
     def test_error(self):
+        def _wrap_noop(func):
+            return func
+
         with patch('recuair_cli.main.get_status', side_effect=RecuairError('Gazpacho!')):
-            with OutputCapture() as output:
-                with self.assertRaises(SystemExit):
-                    main(['status', 'example'])
+            with patch('recuair_cli.main._wrap_retry', new=_wrap_noop):
+                with OutputCapture() as output:
+                    with self.assertRaises(SystemExit):
+                        main(['status', 'example'])
 
         output.compare('Gazpacho!')
