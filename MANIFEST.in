@@ -1,4 +1,2 @@
 include *.rst LICENSE
-# Add tests
-recursive-include tests *.py
-recursive-include tests/data *
+exclude __pycache__
