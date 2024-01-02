@@ -32,6 +32,7 @@ from typing import Any, Coroutine, Dict, List, NamedTuple, Optional
 import httpx
 from bs4 import BeautifulSoup
 from docopt import docopt
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from recuair_cli import __version__
 
@@ -75,14 +76,16 @@ def _strip_unit(value: str) -> str:
     return value.strip().partition(' ')[0]
 
 
+# XXX: Add retry, recuair devices are often irresponsive.
+@retry(reraise=True, stop=stop_after_attempt(10), wait=wait_exponential(max=30))
 async def get_status(client: httpx.AsyncClient, device: str) -> Status:
     """Return device status."""
     try:
-        response = await client.get(f'http://{device}/', timeout=2)
+        response = await client.get(f'http://{device}/', timeout=3)
         response.raise_for_status()
     except httpx.HTTPError as error:
         _LOGGER.debug("Error encountered: %s", error)
-        raise RecuairError(f"Error fetching status of device {device}: {error}") from error
+        raise RecuairError(f"Error fetching status of device {device}: {error!r}") from error
     _LOGGER.debug("Response [%s]: %s", response, response.text)
 
     try:
@@ -114,11 +117,12 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
         raise RecuairError(f"Invalid response returned from device {device}") from error
 
 
+@retry(reraise=True, stop=stop_after_attempt(10), wait=wait_exponential(max=30))
 async def post_request(client: httpx.AsyncClient, device: str, data: Dict[str, Any]) -> None:
     """Send a POST request to the device."""
     try:
         # XXX: Disable redirects. Recuair returns 301 for POST requests.
-        response = await client.post(f'http://{device}/', data=data, timeout=30, follow_redirects=False)
+        response = await client.post(f'http://{device}/', data=data, timeout=5, follow_redirects=False)
     except httpx.HTTPError as error:
         _LOGGER.debug("Error encountered: %s", error)
         raise RecuairError(f"Error from device {device}: {error}") from error
