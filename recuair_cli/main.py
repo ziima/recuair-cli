@@ -25,9 +25,10 @@ Options:
 """
 import logging
 import sys
+from http import HTTPStatus
 from typing import Any, Dict, List, NamedTuple, Optional
 
-import requests
+import httpx
 from bs4 import BeautifulSoup
 from docopt import docopt
 
@@ -76,11 +77,9 @@ def _strip_unit(value: str) -> str:
 def get_status(device: str) -> Status:
     """Return device status."""
     try:
-        response = requests.get(f'http://{device}/', timeout=2)
-        # XXX: Recuair doesn't return encoding properly.
-        response.encoding = 'utf-8'
+        response = httpx.get(f'http://{device}/', timeout=2)
         response.raise_for_status()
-    except requests.RequestException as error:
+    except httpx.HTTPError as error:
         _LOGGER.debug("Error encountered: %s", error)
         raise RecuairError(f"Error fetching status of device {device}: {error}") from error
     _LOGGER.debug("Response [%s]: %s", response, response.text)
@@ -118,13 +117,12 @@ def post_request(device: str, data: Dict[str, Any]) -> None:
     """Send a POST request to the device."""
     try:
         # XXX: Disable redirects. Recuair returns 301 for POST requests.
-        response = requests.post(f'http://{device}/', data=data, timeout=30, allow_redirects=False)
-        response.raise_for_status()
-    except requests.RequestException as error:
+        response = httpx.post(f'http://{device}/', data=data, timeout=30, follow_redirects=False)
+    except httpx.HTTPError as error:
         _LOGGER.debug("Error encountered: %s", error)
         raise RecuairError(f"Error from device {device}: {error}") from error
-    if response.status_code != 301:
-        raise RecuairError(f"Unknown error from device {device}")
+    if response.status_code != HTTPStatus.MOVED_PERMANENTLY:
+        raise RecuairError(f"Unknown error from device {device}, status code {response.status_code}")
     # XXX: When invalid request is send, Recuair returns status page :-/
     _LOGGER.debug("Response [%s]: %s", response, response.text)
 

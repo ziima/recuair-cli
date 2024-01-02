@@ -2,9 +2,8 @@ from pathlib import Path
 from unittest import TestCase
 from unittest.mock import call, patch
 
-import requests
-import responses
-from responses.matchers import urlencoded_params_matcher
+import respx
+from httpx import HTTPError, Response
 from testfixtures import OutputCapture
 
 from recuair_cli.main import RecuairError, Status, get_status, main, post_request
@@ -14,9 +13,9 @@ _DATA = Path(__file__).parent / 'data'
 
 class GetStatusTest(TestCase):
     def test(self):
-        with responses.RequestsMock() as rsps:
+        with respx.mock() as rsps:
             with open(_DATA / 'response.html', 'rb') as file:
-                rsps.add(responses.GET, 'http://example/', body=file.read(), content_type="text/html")
+                rsps.get('http://example/').mock(Response(200, content=file.read()))
 
             status = get_status('example')
 
@@ -26,16 +25,16 @@ class GetStatusTest(TestCase):
 
     def test_invalid(self):
         # Test case with '%%content%%' in the response.
-        with responses.RequestsMock() as rsps:
+        with respx.mock() as rsps:
             with open(_DATA / 'invalid.html', 'rb') as file:
-                rsps.add(responses.GET, 'http://example/', body=file.read(), content_type="text/html")
+                rsps.get('http://example/').mock(Response(200, content=file.read()))
 
             with self.assertRaisesRegex(RecuairError, 'Invalid response returned'):
                 get_status('example')
 
     def test_error(self):
-        with responses.RequestsMock() as rsps:
-            rsps.add(responses.GET, 'http://example/', body=requests.RequestException('Gazpacho!'))
+        with respx.mock() as rsps:
+            rsps.get('http://example/').mock(side_effect=HTTPError('Gazpacho!'))
 
             with self.assertRaisesRegex(RecuairError, 'Error fetching status of device example: Gazpacho!'):
                 get_status('example')
@@ -43,22 +42,22 @@ class GetStatusTest(TestCase):
 
 class PostRequestTest(TestCase):
     def test(self):
-        with responses.RequestsMock() as rsps:
-            rsps.add(responses.POST, 'http://example/', status=301, match=[urlencoded_params_matcher({"answer": "42"})])
+        with respx.mock() as rsps:
+            rsps.post('http://example/', data={"answer": "42"}).mock(Response(301))
 
             post_request('example', {'answer': '42'})
 
     def test_error(self):
-        with responses.RequestsMock() as rsps:
-            rsps.add(responses.POST, 'http://example/', body=requests.RequestException('Gazpacho!'))
+        with respx.mock() as rsps:
+            rsps.post('http://example/').mock(side_effect=HTTPError('Gazpacho!'))
 
             with self.assertRaisesRegex(RecuairError, 'Error from device example: Gazpacho!'):
                 post_request('example', {'answer': '42'})
 
     def test_invalid(self):
         # Test recuair returns 200 response on invalid requests.
-        with responses.RequestsMock() as rsps:
-            rsps.add(responses.POST, 'http://example/', body='status')
+        with respx.mock() as rsps:
+            rsps.post('http://example/').mock(Response(200, text='status'))
 
             with self.assertRaisesRegex(RecuairError, 'Unknown error from device example'):
                 post_request('example', {'answer': '42'})
