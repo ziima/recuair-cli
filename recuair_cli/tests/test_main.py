@@ -14,6 +14,7 @@ _DATA = Path(__file__).parent / "data"
 
 class GetStatusTest(IsolatedAsyncioTestCase):
     async def test(self):
+        # Test response.
         with respx.mock() as rsps:
             with open(_DATA / "response.html", "rb") as file:
                 rsps.get("http://example/").mock(Response(200, content=file.read()))
@@ -29,6 +30,29 @@ class GetStatusTest(IsolatedAsyncioTestCase):
                 temperature_out=5,
                 mode="AUTO",
                 co2_ppm=1246,
+                filter=2,
+                fan=69,
+                light=5,
+            )
+            self.assertEqual(status, result)
+
+    async def test_off(self):
+        # Test response from stopped device
+        with respx.mock() as rsps:
+            with open(_DATA / "response-off.html", "rb") as file:
+                rsps.get("http://example/").mock(Response(200, content=file.read()))
+
+            async with httpx.AsyncClient() as client:
+                status = await get_status(client, "example")
+
+            result = Status(
+                device="example",
+                name="Holly",
+                temperature_in=None,
+                humidity_in=None,
+                temperature_out=None,
+                mode="AUTO",
+                co2_ppm=None,
                 filter=2,
                 fan=69,
                 light=5,

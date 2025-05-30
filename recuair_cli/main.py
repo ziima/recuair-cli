@@ -63,11 +63,11 @@ class Status(NamedTuple):
 
     device: str
     name: str
-    temperature_in: int
-    humidity_in: int
-    temperature_out: int
+    temperature_in: Optional[int]
+    humidity_in: Optional[int]
+    temperature_out: Optional[int]
     mode: str
-    co2_ppm: int
+    co2_ppm: Optional[int]
     filter: int
     fan: int
     light: int
@@ -76,6 +76,14 @@ class Status(NamedTuple):
 def _strip_unit(value: str) -> str:
     """Strip unit from quantity and return only a quantity value."""
     return value.strip().partition(" ")[0]
+
+
+def _int_or_none(value: str) -> Optional[int]:
+    """Convert value to int or return None."""
+    if value == "-":
+        return None
+    else:
+        return int(value)
 
 
 async def get_status(client: httpx.AsyncClient, device: str) -> Status:
@@ -119,11 +127,11 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
         return Status(
             device=device,
             name=cast(Tag, content.find(class_="deviceName")).text,
-            temperature_in=int(_strip_unit(temp_in)),
-            humidity_in=int(_strip_unit(humi_in)),
-            temperature_out=int(_strip_unit(temp_out)),
+            temperature_in=_int_or_none(_strip_unit(temp_in)),
+            humidity_in=_int_or_none(_strip_unit(humi_in)),
+            temperature_out=_int_or_none(_strip_unit(temp_out)),
             mode=mode_raw.strip(),
-            co2_ppm=int(_strip_unit(co2_raw)),
+            co2_ppm=_int_or_none(_strip_unit(co2_raw)),
             filter=100 - int(_strip_unit(filter_raw)),
             fan=100 - int(_strip_unit(fan_raw)),
             light=int(light_raw),
