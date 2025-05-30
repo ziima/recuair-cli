@@ -34,7 +34,7 @@ from typing import Any, Callable, NamedTuple, Optional, TypeVar, cast
 import httpx
 from bs4 import BeautifulSoup, PageElement, Tag
 from docopt import docopt
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from recuair_cli import __version__
 
@@ -89,7 +89,7 @@ def _int_or_none(value: str) -> Optional[int]:
 async def get_status(client: httpx.AsyncClient, device: str) -> Status:
     """Return device status."""
     try:
-        response = await client.get(f"http://{device}/", timeout=3)
+        response = await client.get(f"http://{device}/", timeout=1)
         response.raise_for_status()
     except httpx.HTTPError as error:
         _LOGGER.debug("Error encountered: %s", error)
@@ -160,7 +160,7 @@ X = TypeVar("X")
 
 # XXX: Add retry, recuair devices are often irresponsive.
 def _wrap_retry(func: Callable[..., X]) -> Callable[..., X]:
-    return retry(reraise=True, stop=stop_after_attempt(10), wait=wait_exponential(max=30))(func)
+    return retry(reraise=True, stop=stop_after_attempt(20), wait=wait_fixed(1))(func)
 
 
 async def _run(options: dict[str, str]) -> None:  # noqa: C901
