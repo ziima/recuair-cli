@@ -27,10 +27,10 @@ import asyncio
 import logging
 import sys
 from http import HTTPStatus
-from typing import Any, Callable, Coroutine, Dict, List, NamedTuple, Optional, TypeVar
+from typing import Any, Callable, Coroutine, Dict, List, NamedTuple, Optional, TypeVar, cast
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, PageElement, Tag
 from docopt import docopt
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -88,19 +88,26 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
 
     try:
         content = BeautifulSoup(response.text, features="html.parser")
-        container = content.find(class_='container')
-        temperature_raw = container.find_all(class_='col-12')[1].find(class_='bigText').text
+        container = cast(Tag, content.find(class_='container'))
+        temperature_raw = cast(PageElement,
+                               cast(Tag, container.find_all(class_='col-12')[1]).find(class_='bigText')).text
         in_data, _, temp_out = temperature_raw.strip().partition('%')
         temp_in, _, humi_in = in_data.strip().partition('/')
-        mode_raw = container.find_all(class_='col-12')[3].find('span').text
-        co2_raw = container.find_all(class_='col-12')[4].find('b').text
-        filter_raw = container.find_all(class_='filterBox')[1].div['style'].partition(':')[2].partition('%')[0]
-        fan_raw = container.find_all(class_='filterBox')[2].div['style'].partition(':')[2].partition('%')[0]
-        light_raw = container.find(id='myRange')['value']
+        mode_raw = cast(PageElement, cast(Tag, container.find_all(class_='col-12')[3]).find('span')).text
+        co2_raw = cast(PageElement, cast(Tag, container.find_all(class_='col-12')[4]).find('b')).text
+        filter_raw = cast(
+            str,
+            cast(Tag, cast(Tag, container.find_all(class_='filterBox')[1]).div)['style'],
+        ).partition(':')[2].partition('%')[0]
+        fan_raw = cast(
+            str,
+            cast(Tag, cast(Tag, container.find_all(class_='filterBox')[2]).div)['style'],
+        ).partition(':')[2].partition('%')[0]
+        light_raw = cast(str, cast(Tag, container.find(id='myRange'))['value'])
 
         return Status(
             device=device,
-            name=content.find(class_='deviceName').text,
+            name=cast(Tag, content.find(class_='deviceName')).text,
             temperature_in=int(_strip_unit(temp_in)),
             humidity_in=int(_strip_unit(humi_in)),
             temperature_out=int(_strip_unit(temp_out)),
