@@ -149,7 +149,8 @@ async def post_request(client: httpx.AsyncClient, device: str, data: dict[str, A
     except httpx.HTTPError as error:
         _LOGGER.debug("Error encountered: %s", error)
         raise RecuairError(f"Error from device {device}: {error}") from error
-    if response.status_code != HTTPStatus.MOVED_PERMANENTLY:
+    # MOVED_PERMANENTLY was returned by firmware 12 (end of 2023).
+    if response.status_code not in (HTTPStatus.MOVED_PERMANENTLY, HTTPStatus.SEE_OTHER):
         raise RecuairError(f"Unknown error from device {device}, status code {response.status_code}")
     # XXX: When invalid request is send, Recuair returns status page :-/
     _LOGGER.debug("Response [%s]: %s", response, response.text)
