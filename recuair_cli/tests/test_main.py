@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from pathlib import Path
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import call, patch
@@ -83,7 +84,15 @@ class GetStatusTest(IsolatedAsyncioTestCase):
 class PostRequestTest(IsolatedAsyncioTestCase):
     async def test(self):
         with respx.mock() as rsps:
-            rsps.post("http://example/", data={"answer": "42"}).mock(Response(301))
+            rsps.post("http://example/", data={"answer": "42"}).mock(Response(HTTPStatus.SEE_OTHER))
+
+            async with httpx.AsyncClient() as client:
+                await post_request(client, "example", {"answer": "42"})
+
+    async def test_fw_12(self):
+        # Test post to firmware 12
+        with respx.mock() as rsps:
+            rsps.post("http://example/", data={"answer": "42"}).mock(Response(HTTPStatus.MOVED_PERMANENTLY))
 
             async with httpx.AsyncClient() as client:
                 await post_request(client, "example", {"answer": "42"})
