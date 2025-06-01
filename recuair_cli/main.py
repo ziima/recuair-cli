@@ -7,6 +7,7 @@ Usage: recuair-cli [options] status <device>...
        recuair-cli [options] bypass <device>...
        recuair-cli [options] light <intensity> <red> <green> <blue> <device>...
        recuair-cli [options] light off <device>...
+       recuair-cli [options] reset-filters <device>...
        recuair-cli -h | --help
        recuair-cli --version
 
@@ -17,6 +18,7 @@ Subcommands:
   holiday               set holiday mode
   bypass                set bypass mode
   light                 change light
+  reset-filters         reset filter counter after filter change
 
 Options:
   -h, --help            show this help message and exit
@@ -71,6 +73,7 @@ class Status(NamedTuple):
     filter: int
     fan: int
     light: int
+    warnings: list[str] = []
 
 
 def _strip_unit(value: str) -> str:
@@ -123,6 +126,10 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
             .partition("%")[0]
         )
         light_raw = cast(str, cast(Tag, container.find(id="myRange"))["value"])
+        warnings_wrapper = cast(Tag, cast(Tag, container.find(id="errorModal")).find_all(class_="modalText")[0])
+        warnings = [
+            cast(str, cast(Tag, d).find(string=True)) for d in warnings_wrapper.find_all("div", recursive=False)[1:]
+        ]
 
         return Status(
             device=device,
@@ -135,6 +142,7 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
             filter=100 - int(_strip_unit(filter_raw)),
             fan=100 - int(_strip_unit(fan_raw)),
             light=int(light_raw),
+            warnings=warnings,
         )
     except Exception as error:
         # XXX: Recuair sometimes return incorrectly formatted response.
@@ -194,6 +202,8 @@ async def _run(options: dict[str, str]) -> None:  # noqa: C901
                         "intensity": options["<intensity>"],
                     }
                     coros.append(_wrap_retry(post_request)(client, device, data))
+            elif options["reset-filters"]:
+                coros.append(_wrap_retry(post_request)(client, device, {"filterNotification": "1"}))
             else:
                 coros.append(_wrap_retry(get_status)(client, device))
 

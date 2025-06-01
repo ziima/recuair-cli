@@ -60,6 +60,30 @@ class GetStatusTest(IsolatedAsyncioTestCase):
             )
             self.assertEqual(status, result)
 
+    async def test_warning(self):
+        # Test response with warnings.
+        with respx.mock() as rsps:
+            with open(_DATA / "warning.html", "rb") as file:
+                rsps.get("http://example/").mock(Response(200, content=file.read()))
+
+            async with httpx.AsyncClient() as client:
+                status = await get_status(client, "example")
+
+            result = Status(
+                device="example",
+                name="Holly",
+                temperature_in=None,
+                humidity_in=None,
+                temperature_out=None,
+                mode="Off",
+                co2_ppm=None,
+                filter=100,
+                fan=0,
+                light=0,
+                warnings=["N3: Filtry - KONEC životnosti, prosím vyměňte filtry"],
+            )
+            self.assertEqual(status, result)
+
     async def test_invalid(self):
         # Test case with '%%content%%' in the response.
         with respx.mock() as rsps:
@@ -184,6 +208,15 @@ class MainTest(TestCase):
         self.assertEqual(
             post_request_mock.mock_calls,
             [call(Comparison(httpx.AsyncClient), "example", {"r": "0", "g": "0", "b": "0", "intensity": "0"})],
+        )
+
+    def test_reset_filters(self):
+        with patch("recuair_cli.main.post_request", return_value=None) as post_request_mock:
+            main(["reset-filters", "example"])
+
+        self.assertEqual(
+            post_request_mock.mock_calls,
+            [call(Comparison(httpx.AsyncClient), "example", {"filterNotification": "1"})],
         )
 
     def test_error(self):
