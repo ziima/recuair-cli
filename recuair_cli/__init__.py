@@ -1,3 +1,3 @@
 """Command line interface for manipulation of Recuair devices."""
 
-__version__ = "0.0.0"
+__version__ = "2025.6.6"
