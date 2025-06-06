@@ -7,13 +7,9 @@ Command line interface for manipulation of Recuair devices.
 Installation
 ============
 
-1. Clone the repository::
+1. Install using ``pipx``::
 
-    git clone https://github.com/ziima/recuair-cli.git
-
-2. Install using ``pipx``::
-
-    pipx install ./recuair-cli
+    pipx install https://github.com/ziima/recuair-cli/archive/refs/heads/main.zip
 
 Usage
 =====
