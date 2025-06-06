@@ -1,0 +1,15 @@
+[tool.bumpversion]
+current_version = "0.0.0"
+commit = true
+tag = true
+parse = '(?P<release>(?:\d+)\.(?:\d+)\.(?:\d+))(?:\.(?P<patch>\d+))?'
+serialize = ["{release}.{patch}", "{release}"]
+
+[tool.bumpversion.parts.release]
+calver_format = "{YYYY}.{MM}.{DD}"
+
+[[tool.bumpversion.files]]
+filename = "setup.cfg"
+
+[[tool.bumpversion.files]]
+filename = "recuair_cli/__init__.py"
