@@ -1,14 +1,15 @@
 from http import HTTPStatus
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from unittest import IsolatedAsyncioTestCase, TestCase
-from unittest.mock import call, patch
+from unittest.mock import ANY, call, patch
 
 import httpx
 import respx
 from httpx import HTTPError, Response
 from testfixtures import Comparison, OutputCapture
 
-from recuair_cli.main import RecuairError, Status, get_status, main, post_request
+from recuair_cli.main import RecuairError, Status, get_status, main, post_request, post_request_upload
 
 _DATA = Path(__file__).parent / "data"
 
@@ -139,6 +140,41 @@ class PostRequestTest(IsolatedAsyncioTestCase):
                     await post_request(client, "example", {"answer": "42"})
 
 
+class PostRequestUploadTest(IsolatedAsyncioTestCase):
+    url = "http://example/update"
+
+    def setUp(self):
+        self.tmp_file = NamedTemporaryFile()
+        self.tmp_file.write(b"Gazpacho!")
+        self.tmp_file.seek(0)
+
+    def tearDown(self):
+        self.tmp_file.close()
+
+    async def test(self):
+        with respx.mock() as rsps:
+            rsps.post(self.url, files={"update": ANY}).mock(Response(HTTPStatus.OK))
+
+            async with httpx.AsyncClient() as client:
+                await post_request_upload(client, "example", self.tmp_file.name)
+
+    async def test_error(self):
+        with respx.mock() as rsps:
+            rsps.post(self.url).mock(side_effect=HTTPError("Gazpacho!"))
+
+            with self.assertRaisesRegex(RecuairError, "Error from device example: Gazpacho!"):
+                async with httpx.AsyncClient() as client:
+                    await post_request_upload(client, "example", self.tmp_file.name)
+
+    async def test_invalid(self):
+        with respx.mock() as rsps:
+            rsps.post(self.url).mock(Response(201, text="status"))
+
+            with self.assertRaisesRegex(RecuairError, "Unknown error from device example"):
+                async with httpx.AsyncClient() as client:
+                    await post_request_upload(client, "example", self.tmp_file.name)
+
+
 class MainTest(TestCase):
     def test_status(self):
         status = Status(
@@ -217,6 +253,15 @@ class MainTest(TestCase):
         self.assertEqual(
             post_request_mock.mock_calls,
             [call(Comparison(httpx.AsyncClient), "example", {"filterNotification": "1"})],
+        )
+
+    def test_upload_firmware(self):
+        with patch("recuair_cli.main.post_request_upload", return_value=None) as post_request_mock:
+            main(["upload-firmware", "/tmp/pokus", "example"])  # noqa: S108
+
+        self.assertEqual(
+            post_request_mock.mock_calls,
+            [call(Comparison(httpx.AsyncClient), "example", "/tmp/pokus")],  # noqa: S108
         )
 
     def test_error(self):

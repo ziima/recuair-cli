@@ -8,6 +8,7 @@ Usage: recuair-cli [options] status <device>...
        recuair-cli [options] light <intensity> <red> <green> <blue> <device>...
        recuair-cli [options] light off <device>...
        recuair-cli [options] reset-filters <device>...
+       recuair-cli [options] upload-firmware <file> <device>...
        recuair-cli -h | --help
        recuair-cli --version
 
@@ -19,6 +20,7 @@ Subcommands:
   bypass                set bypass mode
   light                 change light
   reset-filters         reset filter counter after filter change
+  upload-firmware       upload new firmware from file
 
 Options:
   -h, --help            show this help message and exit
@@ -32,6 +34,7 @@ import sys
 from collections.abc import Coroutine
 from http import HTTPStatus
 from typing import Any, Callable, NamedTuple, Optional, TypeVar, cast
+from urllib.parse import SplitResult, urlunsplit
 
 import httpx
 from bs4 import BeautifulSoup, PageElement, Tag
@@ -160,6 +163,21 @@ async def post_request(client: httpx.AsyncClient, device: str, data: dict[str, A
     _LOGGER.debug("Response [%s]: %s", response, response.text)
 
 
+async def post_request_upload(client: httpx.AsyncClient, device: str, file: str) -> None:
+    """Send a POST request to the device to upload firmware."""
+    url = urlunsplit(SplitResult("http", device, "/update", "", ""))
+    try:
+        with open(file, "rb") as buff:
+            response = await client.post(url, files={"update": buff}, timeout=5)
+    except httpx.HTTPError as error:
+        _LOGGER.debug("Error encountered: %s", error)
+        raise RecuairError(f"Error from device {device}: {error}") from error
+    # Recuair returns 200 for POST requests to upload.
+    if response.status_code != HTTPStatus.OK:
+        raise RecuairError(f"Unknown error from device {device}, status code {response.status_code}")
+    _LOGGER.debug("Response [%s]: %s", response, response.text)
+
+
 X = TypeVar("X")
 
 
@@ -200,6 +218,8 @@ async def _run(options: dict[str, str]) -> None:  # noqa: C901
                     coros.append(_wrap_retry(post_request)(client, device, data))
             elif options["reset-filters"]:
                 coros.append(_wrap_retry(post_request)(client, device, {"filterNotification": "1"}))
+            elif options["upload-firmware"]:
+                coros.append(_wrap_retry(post_request_upload)(client, device, options["<file>"]))
             else:
                 coros.append(_wrap_retry(get_status)(client, device))
 
