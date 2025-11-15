@@ -102,17 +102,15 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
     try:
         content = BeautifulSoup(response.text, features="html.parser")
         container = cast(Tag, content.find(class_="container"))
-        temperature_raw = cast(
-            PageElement, cast(Tag, container.find_all(class_="col-12")[1]).find(class_="bigText")
-        ).text
+        temperature_raw = cast(PageElement, container.find_all(class_="col-12")[1].find(class_="bigText")).text
         in_data, _, temp_out = temperature_raw.strip().partition("%")
         temp_in, _, humi_in = in_data.strip().partition("/")
-        mode_raw = cast(PageElement, cast(Tag, container.find_all(class_="col-12")[3]).find("span")).text
-        co2_raw = cast(PageElement, cast(Tag, container.find_all(class_="col-12")[4]).find("b")).text
+        mode_raw = cast(PageElement, container.find_all(class_="col-12")[3].find("span")).text
+        co2_raw = cast(PageElement, container.find_all(class_="col-12")[4].find("b")).text
         filter_raw = (
             cast(
                 str,
-                cast(Tag, cast(Tag, container.find_all(class_="filterBox")[1]).div)["style"],
+                cast(Tag, container.find_all(class_="filterBox")[1].div)["style"],
             )
             .partition(":")[2]
             .partition("%")[0]
@@ -120,16 +118,14 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
         fan_raw = (
             cast(
                 str,
-                cast(Tag, cast(Tag, container.find_all(class_="filterBox")[2]).div)["style"],
+                cast(Tag, container.find_all(class_="filterBox")[2].div)["style"],
             )
             .partition(":")[2]
             .partition("%")[0]
         )
         light_raw = cast(str, cast(Tag, container.find(id="myRange"))["value"])
-        warnings_wrapper = cast(Tag, cast(Tag, container.find(id="errorModal")).find_all(class_="modalText")[0])
-        warnings = [
-            cast(str, cast(Tag, d).find(string=True)) for d in warnings_wrapper.find_all("div", recursive=False)[1:]
-        ]
+        warnings_wrapper = cast(Tag, container.find(id="errorModal")).find_all(class_="modalText")[0]
+        warnings = [cast(str, d.find(string=True)) for d in warnings_wrapper.find_all("div", recursive=False)[1:]]
 
         return Status(
             device=device,
