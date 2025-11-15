@@ -35,6 +35,7 @@ class GetStatusTest(IsolatedAsyncioTestCase):
                 filter=2,
                 fan=69,
                 light=5,
+                firmware="12.4",
             )
             self.assertEqual(status, result)
 
@@ -58,6 +59,7 @@ class GetStatusTest(IsolatedAsyncioTestCase):
                 filter=2,
                 fan=69,
                 light=5,
+                firmware="12.4",
             )
             self.assertEqual(status, result)
 
@@ -81,6 +83,7 @@ class GetStatusTest(IsolatedAsyncioTestCase):
                 filter=100,
                 fan=0,
                 light=0,
+                firmware="13.4",
                 warnings=["N3: Filtry - KONEC životnosti, prosím vyměňte filtry"],
             )
             self.assertEqual(status, result)
@@ -188,6 +191,7 @@ class MainTest(TestCase):
             filter=0,
             fan=0,
             light=0,
+            firmware="12.4",
         )
         with patch("recuair_cli.main.get_status", return_value=status) as get_status_mock:
             with OutputCapture() as output:

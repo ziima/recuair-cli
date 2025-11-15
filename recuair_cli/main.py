@@ -64,6 +64,8 @@ class Status(NamedTuple):
         filter: Filter used in %.
         fan: Fan speed in %.
         light: Light intensity, range 0-5.
+        firmware: Firmware version.
+        warnings: List of warnings.
     """
 
     device: str
@@ -76,6 +78,7 @@ class Status(NamedTuple):
     filter: int
     fan: int
     light: int
+    firmware: str
     warnings: list[str] = []
 
 
@@ -127,6 +130,7 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
             .partition("%")[0]
         )
         light_raw = cast(str, cast(Tag, container.find(id="myRange"))["value"])
+        firmware_raw = cast(Tag, cast(Tag, content.find(id="configModal")).find_all(class_="settingBtn")[1].div).text
         warnings_wrapper = cast(Tag, container.find(id="errorModal")).find_all(class_="modalText")[0]
         warnings = [cast(str, d.find(string=True)) for d in warnings_wrapper.find_all("div", recursive=False)[1:]]
 
@@ -141,6 +145,7 @@ async def get_status(client: httpx.AsyncClient, device: str) -> Status:
             filter=100 - int(_strip_unit(filter_raw)),
             fan=100 - int(_strip_unit(fan_raw)),
             light=int(light_raw),
+            firmware=firmware_raw.rpartition(":")[2],
             warnings=warnings,
         )
     except Exception as error:
@@ -219,7 +224,8 @@ async def _run(options: dict[str, str]) -> None:  # noqa: C901
             elif options["reset-filters"]:
                 coros.append(_wrap_retry(post_request)(client, device, {"filterNotification": "1"}))
             elif options["upload-firmware"]:
-                coros.append(_wrap_retry(post_request_upload)(client, device, options["<file>"]))
+                # Do not run retry on upload-firmware.
+                coros.append(post_request_upload(client, device, options["<file>"]))
             else:
                 coros.append(_wrap_retry(get_status)(client, device))
 
