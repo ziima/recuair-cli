@@ -1,5 +1,5 @@
 [tool.bumpversion]
-current_version = "2025.6.6"
+current_version = "2025.11.15"
 commit = true
 tag = true
 parse = '(?P<release>(?:\d+)\.(?:\d+)\.(?:\d+))(?:\.(?P<patch>\d+))?'
